@@ -3,18 +3,44 @@ var vec2 = require('vec2');
 var mouse2 = require('./mouse');
 var TAU = Math.PI*2;
 
+vec2.prototype._dirty = true;
 vec2.prototype.renderRadius = 5;
-vec2.prototype.render = function(ctx, dt) {
+vec2.prototype.lastRender = -1;
+vec2.prototype.render = function(mouse, ctx, dt, time) {
+
+  if (this.lastRender === time) {
+    return;
+  }
+
+  this.lastRender = time;
+
   ctx.beginPath();
     ctx.strokeStyle = "#fff";
     ctx.arc(this.x, this.y, this.renderRadius, TAU, false);
     ctx.stroke();
+
+    if (this.hovering(mouse)) {
+      ctx.fillStyle = "rgba(255, 255, 255, .5)";
+      ctx.fill();
+    }
 };
+
 vec2.prototype.hovering = function(mouse) {
-
+  if (this.distance(mouse) <= this.renderRadius * 5) {
+    if (mouse.down && !mouse.target) {
+      mouse.target = this;
+    }
+    return true;
+  }
 };
 
-seg2.prototype.render = function(ctx, dt) {
+vec2.prototype.blocked = function(vec) {
+  // TODO: give a reason
+
+  return this.fixed;
+};
+
+seg2.prototype.render = function(mouse, ctx, dt, time) {
   ctx.beginPath();
     ctx.moveTo(this.start.x, this.start.y);
     ctx.lineTo(this.end.x, this.end.y);
@@ -23,13 +49,14 @@ seg2.prototype.render = function(ctx, dt) {
   ctx.strokeStyle = "orange";
   ctx.stroke();
 
-  this.start.render(ctx, dt);
-  this.end.render(ctx, dt);
+  this.start.render(mouse, ctx, dt, time);
+  this.end.render(mouse, ctx, dt, time);
 }
 
 var lock = function(obj, key) {
   var v = (key) ? obj[key] : obj;
-  return function(ctx, dt) {
+  v.fixed = true;
+  return function(mouse, ctx, dt, time) {
     ctx.save();
       ctx.translate(v.x-20, v.y);
 
@@ -45,13 +72,13 @@ var lock = function(obj, key) {
         ctx.strokeStyle = "red";
         ctx.stroke();
     ctx.restore();
-    obj.render(ctx, dt);
+    obj.render(mouse, ctx, dt, time);
   }
 };
 
 var origin = vec2(0, 0);
 var scene = [
-  lock(seg2(origin, vec2(0, 100)), 'end'),
+  seg2(origin, vec2(0, 100)),
   seg2(origin, vec2(100, 0)),
   lock(origin)
 ];
@@ -71,16 +98,15 @@ var ctx = require('fc')(function(dt) {
 
     // flip Y to be closer to a normal coordinate system
     ctx.scale(1, -1);
-
+    var now = Date.now();
     for (var i=0; i<scene.length; i++) {
       if (scene[i].render) {
-        scene[i].render(ctx, dt);
+
+        scene[i].render(mouse, ctx, dt, now);
       } else {
-        scene[i](ctx, dt);
+        scene[i](mouse, ctx, dt, now);
       }
     }
-
-  mouse.render(ctx, dt);
 
   ctx.restore();
 
@@ -88,7 +114,10 @@ var ctx = require('fc')(function(dt) {
 
 // whenever an item in the scene changes, schedule a re-draw
 scene.forEach(function(r) {
-  r.change && r.change(ctx.dirty);
+  r.change && r.change(function() {
+    r._dirty = true;
+    ctx.dirty();
+  });
 });
 
 mouse.change(ctx.dirty);
