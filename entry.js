@@ -58,10 +58,10 @@ seg2.prototype.render = function(mouse, ctx, dt, time) {
 }
 
 // TODO: dynamic lock/unlock
-var lock = function(obj, key, mouse) {
+var lock = function(obj, key, mouse, locked) {
   var v = (key) ? obj[key] : obj;
   var pos = v.subtract(20, 0, true);
-  v.fixed = true;
+  v.fixed = locked !== false;
   var ret = function(mouse, ctx, dt, time) {
 
     pos.set(v.x - 20, v.y);
@@ -115,9 +115,9 @@ var mouse = mouse2(window, scene);
 var origin = vec2(0, 0);
 
 var scene = [
-  seg2(origin, vec2(0, 100)),
-  seg2(origin, vec2(100, 0)),
-  lock(origin, null, mouse)
+  lock(seg2(origin, vec2(0, 100)), 'end', mouse, false),
+  lock(seg2(origin, vec2(100, 0)), 'end', mouse, false),
+  lock(origin, null, mouse, true)
 ];
 
 
