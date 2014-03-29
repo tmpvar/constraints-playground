@@ -20,7 +20,11 @@ vec2.prototype.render = function(mouse, ctx, dt, time) {
     ctx.stroke();
 
     if (this.hovering(mouse)) {
-      ctx.fillStyle = "rgba(255, 255, 255, .5)";
+      if (!this.fixed) {
+        ctx.fillStyle = "rgba(255, 255, 255, .5)";
+      } else {
+        ctx.fillStyle = "rgba(255, 0, 0, .5)";
+      }
       ctx.fill();
     }
 };
@@ -53,37 +57,70 @@ seg2.prototype.render = function(mouse, ctx, dt, time) {
   this.end.render(mouse, ctx, dt, time);
 }
 
-var lock = function(obj, key) {
+// TODO: dynamic lock/unlock
+var lock = function(obj, key, mouse) {
   var v = (key) ? obj[key] : obj;
+  var pos = v.subtract(20, 0, true);
   v.fixed = true;
-  return function(mouse, ctx, dt, time) {
+  var ret = function(mouse, ctx, dt, time) {
+
+    pos.set(v.x - 20, v.y);
+    color = v.fixed ? 'red' : 'green';
+
+    color = ret.hovering(mouse) ? "orange" : color;
+
     ctx.save();
       ctx.translate(v.x-20, v.y);
 
-      ctx.fillStyle = "red";
+      ctx.fillStyle = color;
       ctx.fillRect(-5, -5, 10, 10);
+
+      if (!v.fixed) {
+        ctx.translate(-5, 3);
+        ctx.scale(-1, 1);
+      }
 
       ctx.beginPath()
         ctx.moveTo(-3, 0);
         ctx.lineTo(-3, 10);
         ctx.lineTo(3, 10);
-        ctx.lineTo(3, 0);
+        ctx.lineTo(3, 5);
         ctx.lineWidth = 2
-        ctx.strokeStyle = "red";
+        ctx.strokeStyle = color;
         ctx.stroke();
+
     ctx.restore();
     obj.render(mouse, ctx, dt, time);
   }
+
+  mouse.change(function() {
+
+    if (mouse.down && ret.hovering(mouse) && !mouse.target) {
+      v.fixed = !v.fixed;
+    }
+  })
+
+  ret.hovering = function(m) {
+
+    return  m.x > pos.x - 5  &&
+            m.x < pos.x + 5  &&
+            m.y > pos.y - 10 &&
+            m.y < pos.y + 10;
+  }
+
+  return ret;
 };
 
+var mouse = mouse2(window, scene);
 var origin = vec2(0, 0);
+
 var scene = [
   seg2(origin, vec2(0, 100)),
   seg2(origin, vec2(100, 0)),
-  lock(origin)
+  lock(origin, null, mouse)
 ];
 
-var mouse = mouse2(window, scene);
+
 
 
 var floor = Math.floor;

@@ -1,6 +1,6 @@
 var vec2 = require('vec2');
 
-module.exports = function(el, scene) {
+module.exports = function(el) {
 
   var ret = vec2(0, 0);
   el.addEventListener('mousemove', function(ev) {
@@ -20,11 +20,13 @@ module.exports = function(el, scene) {
   el.addEventListener('mousedown', function(ev) {
     ret.down = true;
     ret.target = null;
+    ret.change();
   });
 
   el.addEventListener('mouseup', function(ev) {
     ret.down = false;
     ret.target = null;
+    ret.change();
   });
 
   return ret;
