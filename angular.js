@@ -19,13 +19,37 @@ function Angle(a, b, rads) {
   this.b = b;
   this.rads = rads;
 
+  this.change(function() {
+    this.computePivot();
+  }.bind(this));
+
+
   a.addConstraint(this);
   b.addConstraint(this);
 }
 
+
 Angle.prototype = Object.create(Vec2.prototype);
 
+Angle.prototype.computePivot = function() {
+  this.pivot = Line2.fromPoints(
+    this.a.start.x,
+    this.a.start.y,
+    this.a.end.x,
+    this.a.end.y
+  ).intersect(
+    Line2.fromPoints(
+      this.b.start.x,
+      this.b.start.y,
+      this.b.end.x,
+      this.b.end.y
+    )
+  );
+}
+
 Angle.prototype.lastRender = 0;
+
+Angle.prototype.lockPosition = Vec2(50, 5);
 
 Angle.prototype.render = function(mouse, ctx, dt, time) {
   var ds = this.a.start.subtract(this.b.start, true);
@@ -51,8 +75,7 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
 
   this.rotation = ada;
   this.angle = toTAU(bd.angleTo(ad));
-  this.set(diff.normalize().multiply(this.radius));
-  this._render = Vec2.prototype.render;
+  //this.set(diff.normalize().multiply(this.radius));
 
   ctx.save()
     ctx.beginPath();
@@ -68,11 +91,11 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
     ctx.scale(1, -1);
     ctx.fillStyle = "white";
     var textPos = Vec2(this.radius, 0).rotate(this.angle/2);
-    this.set(textPos.x, textPos.y, false);
+    //this.set(textPos.x, textPos.y, false);
     ctx.fillText(Number(this.angle * 360/TAU).toFixed(2), textPos.x, -textPos.y);
   ctx.restore();
 
-  this._render(mouse, ctx, dt, time);
+  //this._render(mouse, ctx, dt, time);
 };
 
 Angle.prototype.blocked = function(vec, source) {
@@ -92,11 +115,8 @@ Angle.prototype.blocked = function(vec, source) {
     return false;
   });
 
-
   // assume Segment2 for now
   if (target.start.fixed && target.end.fixed) {
-
-
     if (this.fixed) {
       // Only block this request if it goes out of range of the angle
       var line = Line2.fromPoints(source.start.x, source.start.y, source.end.x, source.end.y);
@@ -114,9 +134,6 @@ Angle.prototype.blocked = function(vec, source) {
     if (this.fixed) {
       var pivot = null;
 
-
-
-
       var toRotate = points.filter(function(a) {
         // TODO: vec.target is mouse.target and we're seriously crossing
         //       some boundaries to get here.
@@ -129,27 +146,25 @@ Angle.prototype.blocked = function(vec, source) {
         var now = pivot.subtract(vec.target, true);
         var next = pivot.subtract(vec, true);
 
-
         var angle = now.angleTo(next);
 
         toRotate.forEach(function(v) {
-
           var n = v.subtract(pivot, true).rotate(angle);
           v.set(pivot.add(n, true));
-
         });
       } else if (!pivots.length) {
         var move = vec.subtract(vec.target, true);
         points.map(function(p) {
           p.add(move);
         });
+
+        this.add(move);
         return true;
       }
     }
 
   } else if (!target.end.fixed && !target.start.fixed) {
     var pivot = null, end = null;
-console.log('here');
     if (target.start.equal(source.end) || target.end.equal(source.end)) {
       pivot = source.end;
       end = source.start;
@@ -162,10 +177,7 @@ console.log('here');
 
     var d = pivot.subtract(end, true);
 
-
-
     console.log(pivot);
-
 
   } else if (!target.end.fixed) {
 
@@ -178,8 +190,12 @@ console.log('here');
     // TODO: ensure that the point can move
 
     //  apply the angle change
-    dt.rotate(da);
-    target.end.set(dt.x, dt.y);
+    var o = (vec.target === source.start) ? source.end : source.start;
+    var a = o.subtract(vec.target, true).angleTo(o.subtract(vec, true));
+    var d = target.end.subtract(target.start);
+
+    d.rotate(a);
+    target.end.set(target.start.add(d, true));
   } else if (!target.start.fixed) {
 
     if (this.fixed && (target.start.equal(source.start) || target.start.equal(source.end))) {

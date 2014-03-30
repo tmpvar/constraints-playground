@@ -1,15 +1,21 @@
+var Vec2 = require('vec2');
+
 module.exports = function(v, mouse, locked) {
-  var pos = v.subtract(20, 0, true);
+  console.log(v.lockPosition);
+  var lockPos = v.lockPosition || new Vec2(-20, 0);
+
+  var pos = v.add(lockPos, true);
+
+
   v.fixed = locked !== false;
   var ret = function(mouse, ctx, dt, time) {
-
-    pos.set(v.x - 20, v.y);
+    pos.set(v.add(lockPos, true));
     color = v.fixed ? 'red' : 'green';
 
     color = ret.hovering(mouse) ? "orange" : color;
 
     ctx.save();
-      ctx.translate(v.x-20, v.y);
+      ctx.translate(pos.x, pos.y);
 
       ctx.fillStyle = color;
       ctx.fillRect(-5, -5, 10, 10);
@@ -39,7 +45,6 @@ module.exports = function(v, mouse, locked) {
   })
 
   ret.hovering = function(m) {
-
     return  m.x > pos.x - 5  &&
             m.x < pos.x + 5  &&
             m.y > pos.y - 10 &&
