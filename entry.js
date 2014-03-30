@@ -1,6 +1,9 @@
 var seg2 = require('segment2');
 var vec2 = require('vec2');
 var mouse2 = require('./mouse');
+
+
+
 var TAU = Math.PI*2;
 
 vec2.prototype._dirty = true;
@@ -39,9 +42,18 @@ vec2.prototype.hovering = function(mouse) {
 };
 
 vec2.prototype.blocked = function(vec) {
-  // TODO: give a reason
+  if (this.fixed) {
+    return true;
+  }
 
-  return this.fixed;
+  if (this.constraints) {
+    var blocked = false;
+    for (var i=0; i<this.constraints.length; i++) {
+      if (this.constraints[i].blocked(vec)) {
+        return true;
+      }
+    }
+  }
 };
 
 seg2.prototype.render = function(mouse, ctx, dt, time) {
@@ -55,69 +67,70 @@ seg2.prototype.render = function(mouse, ctx, dt, time) {
 
   this.start.render(mouse, ctx, dt, time);
   this.end.render(mouse, ctx, dt, time);
-}
-
-// TODO: dynamic lock/unlock
-var lock = function(obj, key, mouse, locked) {
-  var v = (key) ? obj[key] : obj;
-  var pos = v.subtract(20, 0, true);
-  v.fixed = locked !== false;
-  var ret = function(mouse, ctx, dt, time) {
-
-    pos.set(v.x - 20, v.y);
-    color = v.fixed ? 'red' : 'green';
-
-    color = ret.hovering(mouse) ? "orange" : color;
-
-    ctx.save();
-      ctx.translate(v.x-20, v.y);
-
-      ctx.fillStyle = color;
-      ctx.fillRect(-5, -5, 10, 10);
-
-      if (!v.fixed) {
-        ctx.translate(-5, 3);
-        ctx.scale(-1, 1);
-      }
-
-      ctx.beginPath()
-        ctx.moveTo(-3, 0);
-        ctx.lineTo(-3, 10);
-        ctx.lineTo(3, 10);
-        ctx.lineTo(3, 5);
-        ctx.lineWidth = 2
-        ctx.strokeStyle = color;
-        ctx.stroke();
-
-    ctx.restore();
-    obj.render(mouse, ctx, dt, time);
-  }
-
-  mouse.change(function() {
-
-    if (mouse.down && ret.hovering(mouse) && !mouse.target) {
-      v.fixed = !v.fixed;
-    }
-  })
-
-  ret.hovering = function(m) {
-
-    return  m.x > pos.x - 5  &&
-            m.x < pos.x + 5  &&
-            m.y > pos.y - 10 &&
-            m.y < pos.y + 10;
-  }
-
-  return ret;
 };
+
+vec2.prototype.addConstraint = seg2.prototype.addConstraint = function(c) {
+  if (!this.constraints) {
+    this.constraints = [];
+  }
+
+  this.constraints.push(c);
+};
+
+
+seg2.prototype.blocked = function(vec) {
+  if (this.fixed) {
+    return true;
+  }
+
+  if (this.constraints) {
+    for (var i=0; i<this.constraints.length; i++) {
+      if (this.constraints[i].blocked(vec, this)) {
+        return true;
+      }
+    }
+  }
+};
+
+seg2.prototype.constrainComponents = function() {
+  var that = this;
+
+  this.start.addConstraint({
+    blocked : function(m) {
+      return that.blocked(m);
+    }
+  });
+
+  this.end.addConstraint({
+    blocked : function(m) {
+      return that.blocked(m);
+    }
+  });
+
+  return this;
+};
+
+
+var lock = require('./lock');
+var angular = require('./angular');
 
 var mouse = mouse2(window, scene);
 var origin = vec2(0, 0);
 
+var a = vec2(0, 100);
+var b = vec2(100, 0);
+var oa = seg2(origin, a).constrainComponents();
+var ob = seg2(origin, b).constrainComponents();
+
+
+
 var scene = [
-  lock(seg2(origin, vec2(0, 100)), 'end', mouse, false),
-  lock(seg2(origin, vec2(100, 0)), 'end', mouse, false),
-  lock(origin, null, mouse, true)
+  oa,
+  ob,
+  lock(origin, mouse, true),
+  lock(a, mouse, false),
+  lock(b, mouse, false),
+  lock(angular(oa, ob, TAU/4), mouse, true)
 ];
 
 
