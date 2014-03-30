@@ -122,7 +122,7 @@ var b = vec2(100, 0);
 var oa = seg2(origin, a).constrainComponents();
 var ob = seg2(origin, b).constrainComponents();
 
-
+var angle = window.angle = angular(oa, ob, TAU/4);
 
 var scene = [
   oa,
@@ -130,7 +130,7 @@ var scene = [
   lock(origin, mouse, true),
   lock(a, mouse, false),
   lock(b, mouse, false),
-  lock(angular(oa, ob, TAU/4), mouse, true)
+  lock(angle, mouse, true)
 ];
 
 
@@ -173,5 +173,4 @@ scene.forEach(function(r) {
 mouse.change(ctx.dirty);
 
 
-
-window.origin = origin;
+window.ctx = ctx;
