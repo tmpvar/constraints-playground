@@ -74,9 +74,6 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
     anti = true;
   }
 
-
-  console.log(this.rads);
-
   ctx.save()
     ctx.beginPath();
       ctx.translate(this.x, this.y);
