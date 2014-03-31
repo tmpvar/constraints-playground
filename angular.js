@@ -97,20 +97,35 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
 Angle.prototype.apply = function(rads) {
   var pivot = this.computePivot();
   var points = this.points().filter(function(v) {
-    return !v.equal(pivot) && !v.fixed;
+    return !v.equal(pivot);
   });
+
+  var fixed = [];
+  var toRotate = points.filter(function(v) {
+    if (v.fixed) {
+      fixed.push(v);
+      return false;
+    } else {
+      return true;
+    }
+  });
+
 
   var dr = this.rads - rads;
   if (!dr) {
     return;
   }
 
-console.log(this.angle, this.rads, rads, dr);
-  switch (points.length) {
+  switch (toRotate.length) {
     case 1:
-      points[0].set(
+      var fa = Vec2(1, 0).angleTo(fixed[0].subtract(pivot));
+      var ra = Vec2(1, 0).angleTo(toRotate[0].subtract(pivot));
+
+      console.log(fa, ra, fa-ra);
+
+      toRotate[0].set(
         pivot.add(
-          points[0].subtract(pivot, true).rotate(dr), true
+          toRotate[0].subtract(pivot, true).rotate((fa-ra < 0) ? -dr : dr), true
         )
       );
     break;
@@ -119,15 +134,15 @@ console.log(this.angle, this.rads, rads, dr);
 
       dr/=2;
 
-      points[0].set(
+      toRotate[0].set(
         pivot.add(
-          points[0].subtract(pivot, true).rotate(-dr), true
+          toRotate[0].subtract(pivot, true).rotate(-dr), true
         )
       );
 
-      points[1].set(
+      toRotate[1].set(
         pivot.add(
-          points[1].subtract(pivot, true).rotate(dr), true
+          toRotate[1].subtract(pivot, true).rotate(dr), true
         )
       );
     break;
