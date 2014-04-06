@@ -23,6 +23,7 @@ function Angle(a, b, rads) {
     this.computePivot();
   }.bind(this));
 
+  var constraint = this;
 
   a.addConstraint(this);
   b.addConstraint(this);
@@ -30,6 +31,38 @@ function Angle(a, b, rads) {
 
 
 Angle.prototype = Object.create(Vec2.prototype);
+
+
+Angle.prototype.activePoints = function() {
+  var pivot = this.computePivot();
+
+  var filterPivot = function(v) {
+    return !v.equal(pivot) && v.distance(pivot) > .1;
+  };
+
+  return [
+    [this.a.start, this.a.end].filter(filterPivot)[0],
+    [this.b.start, this.b.end].filter(filterPivot)[0]
+  ]
+}
+
+
+Angle.prototype.computeRads = function(store) {
+  var active = this.activePoints();
+  var pivot = this.computePivot();
+
+  // compute the distance between the two points
+  var ad = active[0].subtract(pivot, true);
+  var bd = active[1].subtract(pivot, true);
+
+  var rads = ad.angleTo(bd);
+
+  if (store) {
+    this.rads = rads;
+  }
+
+  return rads;
+};
 
 Angle.prototype.computePivot = function() {
   this.pivot = Line2.fromPoints(
@@ -57,8 +90,13 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
 
   var pivot = this.computePivot();
   var points = this.points().filter(function(v) {
-    return !v.equal(pivot);
+    return pivot !== true && !v.equal(pivot);
   });
+
+  if (!points.length) {
+    console.error('handle colinear case');
+    return;
+  }
 
   var angles = points.map(function(p) {
     return toTAU(Vec2(1, 0).angleTo(p.subtract(pivot, true)));
@@ -76,21 +114,24 @@ Angle.prototype.render = function(mouse, ctx, dt, time) {
 
   ctx.save()
     ctx.beginPath();
-      ctx.translate(this.x, this.y);
-      //ctx.rotate(rotation);
-      ctx.arc(0, 0, 100, angles[0], angles[1], anti);
+      ctx.translate(pivot.x, pivot.y);
+      ctx.arc(0, 0, 100, angles[1], angles[0], anti);
       ctx.strokeStyle = "green";
       ctx.stroke();
   ctx.restore();
 
   ctx.save();
-    ctx.translate(this.x, this.y);
+    ctx.translate(pivot.x, pivot.y);
     ctx.scale(1, -1);
     ctx.fillStyle = "white";
 
+    var rads = toTAU(this.rads);
+    // if (rads > TAU/2) {
+    //   rads = Math.abs(TAU-rads);
+    // }
 
     var textPos = Vec2(100, 0).rotate(angles[0] - (da/2));
-    ctx.fillText(Number(toTAU(this.rads) * 360/TAU).toFixed(2), textPos.x, -textPos.y);
+    ctx.fillText(Number(rads * 360/TAU).toFixed(2), textPos.x, -textPos.y);
   ctx.restore();
 };
 
@@ -99,6 +140,7 @@ Angle.prototype.apply = function(rads) {
   var points = this.points().filter(function(v) {
     return !v.equal(pivot);
   });
+
 
   var fixed = [];
   var toRotate = points.filter(function(v) {
@@ -115,17 +157,18 @@ Angle.prototype.apply = function(rads) {
   if (!dr) {
     return;
   }
+  console.log(dr);
 
   switch (toRotate.length) {
     case 1:
-      var fa = Vec2(1, 0).angleTo(fixed[0].subtract(pivot));
-      var ra = Vec2(1, 0).angleTo(toRotate[0].subtract(pivot));
-
-      console.log(fa, ra, fa-ra);
+    debugger;
+      var fa = toTAU(Vec2(1, 0).angleTo(fixed[0].subtract(pivot)));
+      var ra = toTAU(Vec2(1, 0).angleTo(toRotate[0].subtract(pivot)));
+      var a = fa + rads;
 
       toRotate[0].set(
         pivot.add(
-          toRotate[0].subtract(pivot, true).rotate((fa-ra < 0) ? -dr : dr), true
+          toRotate[0].subtract(pivot, true).rotate(a - ra), true
         )
       );
     break;
@@ -169,7 +212,27 @@ Angle.prototype.points = function() {
 
 Angle.prototype.blocked = function(vec, source) {
 
+  var active = this.activePoints();
+
+  // The only way this can be blocked is if the angle is fixed and the target is fixed
+  if (this.fixed && active[0].fixed && active[1].fixed) {
+    return true;
+  }
+
   var target = (source === this.a) ? this.b : this.a;
+/*
+  var pivot = this.computePivot();
+  var base = Vec2(1, 0);
+  var target = active[0] === vec.target ? active[1] : active[0];
+
+  var deltaAngle = base.angleTo(vec.target.subtract(pivot, true)) - base.angleTo(vec.subtract(pivot, true));
+
+  target.set(
+    target.subtract(pivot, true).rotate(-deltaAngle).add(pivot)
+  );
+
+  this.computeRads(true);
+*/
 
   var dt = target.end.subtract(target.start, true);
   var ds = source.end.subtract(source.start, true);
@@ -186,7 +249,7 @@ Angle.prototype.blocked = function(vec, source) {
       var p = line.closestPointTo(vec);
       vec.set(p.x, p.y)
     } else {
-      this.rads = da;
+      this.computeRads(true);
     }
   } else if (!source.end.fixed && !source.start.fixed) {
     var pivots = points.filter(function(a) {
@@ -239,8 +302,6 @@ Angle.prototype.blocked = function(vec, source) {
 
     var d = pivot.subtract(end, true);
 
-    console.log(pivot);
-
   } else if (!target.end.fixed) {
 
     if (this.fixed && (target.end.equal(source.start) || target.end.equal(source.end))) {
@@ -257,7 +318,8 @@ Angle.prototype.blocked = function(vec, source) {
     var d = target.end.subtract(target.start);
 
     d.rotate(a);
-    target.end.set(target.start.add(d, true));
+    target.end.set(target.start.add(d, true), false);
+    this.computeRads(true);
   } else if (!target.start.fixed) {
 
     if (this.fixed && (target.start.equal(source.start) || target.start.equal(source.end))) {
